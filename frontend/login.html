@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PHP Security Analyzer — Login</title>
+<link rel="icon" type="image/x-icon" href="/frontend/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #020810;
+  --surface:   #080f1e;
+  --border:    rgba(56,189,248,0.15);
+  --accent:    #38bdf8;
+  --accent2:   #818cf8;
+  --danger:    #f87171;
+  --success:   #4ade80;
+  --text:      #e2e8f0;
+  --muted:     #64748b;
+  --font-ui:   'Syne', sans-serif;
+  --font-mono: 'Space Mono', monospace;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  overflow: hidden;
+}
+
+/* ── CANVAS BACKGROUND ── */
+canvas#bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.35;
+}
+
+/* ── GRID OVERLAY ── */
+.grid-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background-image:
+    linear-gradient(rgba(56,189,248,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56,189,248,0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+}
+
+/* ── LAYOUT ── */
+.layout {
+  position: relative;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: 1fr 420px 1fr;
+  grid-template-rows: 1fr;
+  min-height: 100vh;
+  align-items: center;
+}
+
+/* ── LEFT BRAND PANEL ── */
+.brand {
+  grid-column: 1;
+  padding: 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  animation: fadeSlideLeft 0.8s ease both;
+}
+
+.brand-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(56,189,248,0.08);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 14px;
+  width: fit-content;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+  letter-spacing: 0.1em;
+}
+
+.brand-badge::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 2s infinite;
+}
+
+.brand h1 {
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.brand h1 em {
+  font-style: normal;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.brand p {
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.7;
+  max-width: 360px;
+}
+
+.features {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.feature {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.875rem;
+  color: var(--muted);
+  animation: fadeSlideLeft 0.8s ease both;
+}
+
+.feature:nth-child(1) { animation-delay: 0.2s; }
+.feature:nth-child(2) { animation-delay: 0.35s; }
+.feature:nth-child(3) { animation-delay: 0.5s; }
+
+.feature-icon {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  background: rgba(56,189,248,0.08);
+  border: 1px solid var(--border);
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+/* ── FORM PANEL ── */
+.panel {
+  grid-column: 2;
+  background: rgba(8,15,30,0.95);
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 60px 48px;
+  backdrop-filter: blur(20px);
+  animation: fadeIn 0.6s ease both;
+}
+
+.panel-header {
+  margin-bottom: 40px;
+}
+
+.panel-header h2 {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+
+.panel-header p {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+/* ── TABS ── */
+.tabs {
+  display: flex;
+  gap: 4px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 32px;
+}
+
+.tab {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab.active {
+  background: rgba(56,189,248,0.12);
+  color: var(--accent);
+}
+
+/* ── FORM ── */
+.form { display: flex; flex-direction: column; gap: 16px; }
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+}
+
+.input-wrap {
+  position: relative;
+}
+
+.input-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: 15px;
+  pointer-events: none;
+}
+
+input[type="email"],
+input[type="password"],
+input[type="text"] {
+  width: 100%;
+  padding: 13px 14px 13px 40px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+input:focus {
+  border-color: var(--accent);
+  background: rgba(56,189,248,0.05);
+}
+
+input::placeholder { color: var(--muted); opacity: 0.5; }
+
+.btn {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 10px;
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 8px;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+  color: #020810;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(56,189,248,0.3);
+}
+
+.btn-primary:active { transform: translateY(0); }
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* ── SPINNER ── */
+.spinner {
+  width: 16px; height: 16px;
+  border: 2px solid rgba(0,0,0,0.3);
+  border-top-color: #020810;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+
+/* ── MESSAGE ── */
+.msg {
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-family: var(--font-mono);
+  display: none;
+  margin-top: 4px;
+}
+
+.msg.error   { background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: var(--danger); }
+.msg.success { background: rgba(74,222,128,0.1);  border: 1px solid rgba(74,222,128,0.3);  color: var(--success); }
+.msg.show    { display: block; animation: fadeIn 0.3s ease; }
+
+/* ── DIVIDER ── */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.divider::before, .divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ── FOOTER ── */
+.panel-footer {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+
+/* ── ANIMATIONS ── */
+@keyframes fadeIn        { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fadeSlideLeft { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes spin          { to { transform: rotate(360deg); } }
+@keyframes pulse         { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  .brand  { display: none; }
+  .panel  {
+    grid-column: 1;
+    border: none;
+    min-height: 100vh;
+    padding: 40px 28px;
+  }
+}
+</style>
+</head>
+
+<body>
+<canvas id="bg"></canvas>
+<div class="grid-overlay"></div>
+
+<div class="layout">
+
+  <!-- LEFT BRAND -->
+  <div class="brand">
+    <div class="brand-badge">v1.0 · SISTEMA ACTIVO</div>
+    <h1>Analiza código <em>PHP</em> con IA</h1>
+    <p>Sistema híbrido de detección de vulnerabilidades que combina análisis estático con un modelo DistilBERT entrenado a medida.</p>
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">🔍</div>
+        <span>Detección de SQLi, XSS, RCE, LFI, SSRF y más</span>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🧠</div>
+        <span>Modelo DistilBERT con aprendizaje incremental</span>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">⚡</div>
+        <span>Análisis estático + ML en tiempo real</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- FORM PANEL -->
+  <div class="panel">
+    <div class="panel-header">
+      <h2>Bienvenido</h2>
+      <p>Accede a tu cuenta para analizar código PHP</p>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('login')">Iniciar sesión</button>
+      <button class="tab" onclick="switchTab('register')">Registrarse</button>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <div id="form-login" class="form">
+      <div class="field">
+        <label>Email</label>
+        <div class="input-wrap">
+          <span class="input-icon">✉</span>
+          <input type="email" id="login-email" placeholder="tu@email.com" autocomplete="email">
+        </div>
+      </div>
+      <div class="field">
+        <label>Contraseña</label>
+        <div class="input-wrap">
+          <span class="input-icon">🔒</span>
+          <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password">
+        </div>
+      </div>
+      <div id="msg-login" class="msg"></div>
+      <button class="btn btn-primary" id="btn-login" onclick="login()">
+        Iniciar sesión
+      </button>
+    </div>
+
+    <!-- REGISTER FORM -->
+    <div id="form-register" class="form" style="display:none">
+      <div class="field">
+        <label>Email</label>
+        <div class="input-wrap">
+          <span class="input-icon">✉</span>
+          <input type="email" id="reg-email" placeholder="tu@email.com" autocomplete="email">
+        </div>
+      </div>
+      <div class="field">
+        <label>Contraseña</label>
+        <div class="input-wrap">
+          <span class="input-icon">🔒</span>
+          <input type="password" id="reg-password" placeholder="Mínimo 8 caracteres" autocomplete="new-password">
+        </div>
+      </div>
+      <div id="msg-register" class="msg"></div>
+      <button class="btn btn-primary" id="btn-register" onclick="register()">
+        Crear cuenta
+      </button>
+    </div>
+
+    <div class="panel-footer">
+      PHP Security Analyzer · TFG · Sistema híbrido ML + Estático
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── ANIMATED BACKGROUND ──
+const canvas = document.getElementById('bg');
+const ctx    = canvas.getContext('2d');
+let W, H, nodes = [];
+
+function resize() {
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+
+function initNodes() {
+  nodes = Array.from({ length: 60 }, () => ({
+    x: Math.random() * W,
+    y: Math.random() * H,
+    vx: (Math.random() - 0.5) * 0.4,
+    vy: (Math.random() - 0.5) * 0.4,
+    r: Math.random() * 2 + 1,
+  }));
+}
+
+function drawFrame() {
+  ctx.clearRect(0, 0, W, H);
+
+  for (let i = 0; i < nodes.length; i++) {
+    const a = nodes[i];
+    a.x += a.vx; a.y += a.vy;
+    if (a.x < 0 || a.x > W) a.vx *= -1;
+    if (a.y < 0 || a.y > H) a.vy *= -1;
+
+    // Conexiones
+    for (let j = i + 1; j < nodes.length; j++) {
+      const b = nodes[j];
+      const dx = a.x - b.x, dy = a.y - b.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < 130) {
+        ctx.beginPath();
+        ctx.strokeStyle = `rgba(56,189,248,${(1 - dist/130) * 0.4})`;
+        ctx.lineWidth = 0.5;
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+    }
+
+    // Nodo
+    ctx.beginPath();
+    ctx.arc(a.x, a.y, a.r, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(56,189,248,0.6)';
+    ctx.fill();
+  }
+
+  requestAnimationFrame(drawFrame);
+}
+
+resize();
+initNodes();
+drawFrame();
+window.addEventListener('resize', () => { resize(); initNodes(); });
+
+// ── TABS ──
+function switchTab(tab) {
+  document.getElementById('form-login').style.display    = tab === 'login'    ? 'flex' : 'none';
+  document.getElementById('form-register').style.display = tab === 'register' ? 'flex' : 'none';
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', (i === 0) === (tab === 'login'));
+  });
+  showMsg('login', '');
+  showMsg('register', '');
+}
+
+// ── MESSAGES ──
+function showMsg(form, text, type = 'error') {
+  const el = document.getElementById(`msg-${form}`);
+  el.textContent = text;
+  el.className   = `msg ${type} ${text ? 'show' : ''}`;
+}
+
+// ── SET LOADING ──
+function setLoading(btnId, loading) {
+  const btn = document.getElementById(btnId);
+  btn.disabled = loading;
+  btn.innerHTML = loading
+    ? '<span class="spinner"></span> Procesando...'
+    : btn.dataset.label;
+}
+
+document.getElementById('btn-login').dataset.label    = 'Iniciar sesión';
+document.getElementById('btn-register').dataset.label = 'Crear cuenta';
+
+// ── LOGIN ──
+async function login() {
+  const email    = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+
+  if (!email || !password) {
+    showMsg('login', 'Completa todos los campos.');
+    return;
+  }
+
+  setLoading('btn-login', true);
+
+  try {
+    const params = new URLSearchParams({ email, password });
+    const res    = await fetch('/api/login?' + params.toString(), {
+      method: 'POST',
+      credentials: 'include'
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      showMsg('login', '¡Acceso concedido! Redirigiendo...', 'success');
+      setTimeout(() => { window.location.href = '/app'; }, 800);
+    } else {
+      showMsg('login', data.detail || 'Error de autenticación.');
+    }
+  } catch {
+    showMsg('login', 'Error de conexión. Intenta de nuevo.');
+  } finally {
+    setLoading('btn-login', false);
+  }
+}
+
+// ── REGISTER ──
+async function register() {
+  const email    = document.getElementById('reg-email').value.trim();
+  const password = document.getElementById('reg-password').value;
+
+  if (!email || !password) {
+    showMsg('register', 'Completa todos los campos.');
+    return;
+  }
+
+  if (password.length < 8) {
+    showMsg('register', 'La contraseña debe tener al menos 8 caracteres.');
+    return;
+  }
+
+  setLoading('btn-register', true);
+
+  try {
+    const params = new URLSearchParams({ email, password });
+    const res    = await fetch('/api/register?' + params.toString(), {
+      method: 'POST'
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      showMsg('register', '¡Cuenta creada! Inicia sesión.', 'success');
+      setTimeout(() => switchTab('login'), 1500);
+    } else {
+      showMsg('register', data.detail || 'Error al registrar.');
+    }
+  } catch {
+    showMsg('register', 'Error de conexión. Intenta de nuevo.');
+  } finally {
+    setLoading('btn-register', false);
+  }
+}
+
+// ── ENTER KEY ──
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const loginVisible = document.getElementById('form-login').style.display !== 'none';
+  if (loginVisible) login(); else register();
+});
+
+// ── VERIFICAR SI YA HAY SESIÓN ──
+(async () => {
+  try {
+    const res = await fetch('/api/verify', { credentials: 'include' });
+    if (res.ok) window.location.href = '/app';
+  } catch {}
+})();
+</script>
+</body>
+</html>

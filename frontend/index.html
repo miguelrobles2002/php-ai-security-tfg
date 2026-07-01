@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PHP Security Analyzer</title>
+<link rel="icon" type="image/x-icon" href="/frontend/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/frontend/styles.css">
+</head>
+
+<body>
+<canvas id="bg"></canvas>
+<div class="grid-overlay"></div>
+
+<div class="shell">
+
+  <!-- ══ TOP BAR ══ -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="brand-badge">
+        <span class="badge-dot"></span>
+        PHP VULN SCANNER v1.0
+      </div>
+    </div>
+
+    <h1 class="topbar-title">Detector de vulnerabilidades <em>PHP</em></h1>
+
+    <div class="topbar-right">
+      <div class="quota-wrap" id="quota-wrap" style="display:none">
+        <span class="quota-label">Hoy</span>
+        <div class="quota-bar-track">
+          <div class="quota-bar-fill" id="quota-fill"></div>
+        </div>
+        <span class="quota-text" id="quota-text">0/20</span>
+      </div>
+
+      <div class="role-badge" id="role-badge" style="display:none"></div>
+
+      <div class="admin-badge" id="admin-badge" style="display:none">
+        <span>⚡</span> ADMIN
+      </div>
+
+      <button class="btn-topbar btn-admin-panel" id="btn-admin-panel" style="display:none" onclick="openAdmin()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Usuarios
+      </button>
+
+      <button class="btn-topbar btn-logout" id="btn-logout">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Salir
+      </button>
+    </div>
+  </header>
+
+  <!-- ══ MAIN ══ -->
+  <main class="main-center">
+    <div class="main-grid">
+
+      <!-- EDITOR -->
+      <section class="card card-editor">
+        <div class="card-header">
+          <span class="card-icon">⌨</span>
+          <h2>Código a analizar</h2>
+          <div class="lang-tag">PHP</div>
+        </div>
+        <div class="editor-wrap">
+          <div class="line-numbers" id="line-numbers">1</div>
+          <textarea id="code-input" spellcheck="false"
+            placeholder="<?php&#10;// Pega aquí tu código PHP...&#10;$user = $_GET['id'];&#10;$query = &quot;SELECT * FROM users WHERE id = $user&quot;;&#10;?>"></textarea>
+        </div>
+        <div class="editor-footer">
+          <span id="line-count" class="editor-stat">1 línea</span>
+          <span id="char-count" class="editor-stat">0 chars</span>
+          <span class="editor-hint">Ctrl+Enter</span>
+          <button class="btn-clear" id="btn-clear">✕ Limpiar</button>
+          <button class="btn-analyze" id="analyze-btn">
+            <span class="btn-analyze-inner">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              Analizar
+            </span>
+          </button>
+        </div>
+      </section>
+
+      <!-- RIGHT COL -->
+      <div class="right-col">
+
+        <!-- RESULT -->
+        <section class="card card-result" id="card-result">
+          <div class="card-header">
+            <span class="card-icon">🛡</span>
+            <h2>Resultado</h2>
+          </div>
+          <div class="result-idle" id="result-idle">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.1" opacity="0.22"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <p>Esperando análisis…</p>
+          </div>
+          <div class="result-loading" id="result-loading" style="display:none">
+            <div class="scan-ring"></div>
+            <p>Escaneando código…</p>
+          </div>
+          <div class="result-output" id="result-output" style="display:none">
+            <div class="verdict-badge" id="verdict-badge"></div>
+            <div class="confidence-wrap" id="confidence-wrap">
+              <span class="confidence-label">Probabilidad de vulnerabilidad</span>
+              <div class="confidence-bar-track">
+                <div class="confidence-bar-fill" id="confidence-fill"></div>
+              </div>
+              <span class="confidence-pct" id="confidence-pct">0%</span>
+            </div>
+          </div>
+          <div class="result-ratelimit" id="result-ratelimit" style="display:none">
+            <div class="ratelimit-icon">⏱</div>
+            <p class="ratelimit-title">Límite diario alcanzado</p>
+            <p class="ratelimit-sub" id="ratelimit-sub">Has usado todos los análisis de hoy. Se reinicia a medianoche UTC.</p>
+          </div>
+        </section>
+
+        <!-- FEEDBACK -->
+        <section class="card card-feedback" id="card-feedback">
+          <div class="card-header">
+            <span class="card-icon">💬</span>
+            <h2>Feedback</h2>
+          </div>
+          <div id="feedback-blocked" style="display:none">
+            <p class="feedback-desc feedback-blocked-msg">
+              El feedback está disponible solo para usuarios <strong>premium</strong>.
+            </p>
+          </div>
+          <div id="feedback-available">
+            <p class="feedback-desc">¿El resultado fue correcto? Ayúdanos a mejorar el modelo.</p>
+            <div class="feedback-actions">
+              <button class="fb-btn fb-ok"  id="feedback-correcto"   style="display:none">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                Correcto
+              </button>
+              <button class="fb-btn fb-bad" id="feedback-incorrecto" style="display:none">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                Incorrecto
+              </button>
+            </div>
+            <div class="feedback-msg" id="feedback-msg"></div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </main>
+
+  <footer class="app-footer">
+    PHP Security Analyzer · TFG · Sistema híbrido ML + Estático · Miguel Robles
+  </footer>
+</div>
+
+<!-- ══ ADMIN MODAL ══ -->
+<div class="modal-backdrop" id="modal-backdrop" onclick="closeAdmin()"></div>
+<div class="modal" id="admin-modal">
+  <div class="modal-header">
+    <div class="modal-title">
+      <span>👥</span>
+      <h3>Panel de usuarios</h3>
+    </div>
+    <div class="modal-header-right">
+      <button class="btn-refresh" onclick="loadUsers()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Actualizar
+      </button>
+      <button class="modal-close" onclick="closeAdmin()">✕</button>
+    </div>
+  </div>
+
+  <div class="modal-stats" id="modal-stats">
+    <div class="stat-chip">
+      <span class="stat-num" id="stat-total">—</span>
+      <span class="stat-label">Total usuarios</span>
+    </div>
+    <div class="stat-chip stat-chip-online">
+      <span class="badge-dot" style="width:7px;height:7px;flex-shrink:0"></span>
+      <span class="stat-num" id="stat-online">—</span>
+      <span class="stat-label">Conectados</span>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-num" id="stat-premium">—</span>
+      <span class="stat-label">Premium</span>
+    </div>
+  </div>
+
+  <div class="modal-body" id="modal-body">
+    <div class="modal-loading">
+      <div class="scan-ring"></div>
+      <p>Cargando usuarios…</p>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CANVAS ──
+const canvas=document.getElementById('bg'),ctx=canvas.getContext('2d');
+let W,H,nodes=[];
+function resize(){W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight;}
+function initNodes(){nodes=Array.from({length:55},()=>({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.35,vy:(Math.random()-.5)*.35,r:Math.random()*2+1}));}
+function drawFrame(){ctx.clearRect(0,0,W,H);for(let i=0;i<nodes.length;i++){const a=nodes[i];a.x+=a.vx;a.y+=a.vy;if(a.x<0||a.x>W)a.vx*=-1;if(a.y<0||a.y>H)a.vy*=-1;for(let j=i+1;j<nodes.length;j++){const b=nodes[j],dx=a.x-b.x,dy=a.y-b.y,d=Math.sqrt(dx*dx+dy*dy);if(d<130){ctx.beginPath();ctx.strokeStyle=`rgba(56,189,248,${(1-d/130)*.28})`;ctx.lineWidth=.5;ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}}ctx.beginPath();ctx.arc(a.x,a.y,a.r,0,Math.PI*2);ctx.fillStyle='rgba(56,189,248,.5)';ctx.fill();}requestAnimationFrame(drawFrame);}
+resize();initNodes();drawFrame();
+window.addEventListener('resize',()=>{resize();initNodes();});
+
+// ── EDITOR ──
+const codeInput=document.getElementById('code-input'),lineNumbers=document.getElementById('line-numbers');
+function updateEditor(){const lines=codeInput.value.split('\n').length;lineNumbers.innerHTML=Array.from({length:lines},(_,i)=>i+1).join('<br>');document.getElementById('line-count').textContent=`${lines} línea${lines!==1?'s':''}`;document.getElementById('char-count').textContent=`${codeInput.value.length} chars`;lineNumbers.scrollTop=codeInput.scrollTop;}
+codeInput.addEventListener('input',updateEditor);
+codeInput.addEventListener('scroll',()=>{lineNumbers.scrollTop=codeInput.scrollTop;});
+updateEditor();
+document.getElementById('btn-clear').addEventListener('click',()=>{codeInput.value='';updateEditor();showIdle();resetFeedback();});
+
+// ── SESSION ──
+let isAdmin=false, userRole='basic', dailyUsed=0, dailyLimit=20;
+
+async function loadSession(){
+  try{
+    const res=await fetch('/api/verify-session',{credentials:'include'});
+    if(!res.ok){window.location.href='/frontend/login.html';return;}
+    const d=await res.json();
+    isAdmin   = d.admin;
+    userRole  = d.role || 'basic';
+    dailyUsed = d.daily_requests || 0;
+    dailyLimit= d.limit || 20;
+
+    if(isAdmin){
+      document.getElementById('admin-badge').style.display='';
+      document.getElementById('btn-admin-panel').style.display='';
+    } else {
+      // Mostrar badge de rol
+      const rb=document.getElementById('role-badge');
+      rb.style.display='';
+      rb.textContent=userRole==='premium'?'⭐ PREMIUM':'BASIC';
+      rb.className='role-badge '+(userRole==='premium'?'role-premium':'role-basic');
+
+      // Quota
+      document.getElementById('quota-wrap').style.display='';
+      updateQuota();
+
+      // Feedback: ocultar si es basic
+      if(userRole==='basic'){
+        document.getElementById('feedback-blocked').style.display='';
+        document.getElementById('feedback-available').style.display='none';
+      }
+    }
+  }catch{window.location.href='/frontend/login.html';}
+}
+
+function updateQuota(){
+  const pct=Math.min((dailyUsed/dailyLimit)*100,100);
+  const fill=document.getElementById('quota-fill');
+  fill.style.width=pct+'%';
+  fill.className='quota-bar-fill'+(pct>=100?' quota-full':pct>=75?' quota-warn':'');
+  document.getElementById('quota-text').textContent=`${dailyUsed}/${dailyLimit}`;
+}
+
+// ── STATES ──
+function showIdle(){setState('idle');}
+function showLoading(){setState('loading');}
+function showOutput(){setState('output');}
+function showRateLimit(msg){setState('ratelimit');if(msg)document.getElementById('ratelimit-sub').textContent=msg;resetFeedback();}
+function setState(s){['idle','loading','output','ratelimit'].forEach(id=>{document.getElementById('result-'+id).style.display=id===s?'':'none';});if(s!=='output')document.getElementById('card-result').className='card card-result';}
+function resetFeedback(){['feedback-correcto','feedback-incorrecto'].forEach(id=>{const el=document.getElementById(id);if(el){el.style.display='none';el.disabled=false;}});document.getElementById('feedback-msg').textContent='';}
+function showFeedbackBtns(){if(userRole==='basic'||isAdmin&&false)return;document.getElementById('feedback-correcto').style.display='';document.getElementById('feedback-incorrecto').style.display='';}
+
+// ── VERDICT ──
+const VERDICTS = {
+  safe:   { label: '✔  SEGURO',       cls: 'verdict-safe',   card: 'card-result-safe' },
+  danger: { label: '✖  VULNERABLE',   cls: 'verdict-danger', card: 'card-result-danger' },
+  nocode: { label: '⚠  NO ES CÓDIGO', cls: 'verdict-nocode', card: 'card-result-nocode' }
+};
+
+function setVerdict(type, confidence) {
+  const v = VERDICTS[type];
+  document.getElementById('card-result').className = `card card-result ${v.card}`;
+  const badge = document.getElementById('verdict-badge');
+  badge.textContent = v.label;
+  badge.className = `verdict-badge ${v.cls}`;
+  const cw = document.getElementById('confidence-wrap');
+  if (confidence != null && type !== 'nocode') {
+    const pct = Math.round(confidence * 100);
+    cw.style.display = '';
+    const fill = document.getElementById('confidence-fill');
+    fill.style.width = pct + '%';
+    fill.className = 'confidence-bar-fill ' + (pct >= 60 ? 'conf-danger' : 'conf-safe');
+    document.getElementById('confidence-pct').textContent = pct + '%';
+  } else {
+    cw.style.display = 'none';
+  }
+}
+
+// ── MOSTRAR VULNERABILIDADES ──
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function mostrarVulnerabilidades(vulns) {
+  const anterior = document.getElementById('vuln-panel');
+  if (anterior) anterior.remove();
+  if (!vulns || vulns.length === 0) return;
+
+  const colores = {
+    'Crítica': { bg: 'rgba(248,113,113,0.08)', border: 'rgba(248,113,113,0.35)', texto: '#f87171' },
+    'Alta':    { bg: 'rgba(251,191,36,0.08)',  border: 'rgba(251,191,36,0.35)',  texto: '#fbbf24' },
+    'Media':   { bg: 'rgba(129,140,248,0.08)', border: 'rgba(129,140,248,0.35)', texto: '#818cf8' },
+  };
+
+  const panel = document.createElement('div');
+  panel.id = 'vuln-panel';
+  panel.style.cssText = 'margin-top:16px;display:flex;flex-direction:column;gap:12px;';
+
+  let html = '';
+
+  html += `
+    <div style="font-family:var(--font-mono);font-size:0.72rem;color:var(--muted);
+                letter-spacing:0.1em;text-transform:uppercase;padding:0 2px;">
+      ${vulns.length} vulnerabilidad${vulns.length > 1 ? 'es' : ''} detectada${vulns.length > 1 ? 's' : ''}
+    </div>
+  `;
+
+  vulns.forEach((v) => {
+    const c = colores[v.severidad] || colores['Media'];
+
+    html += `
+      <details class="vuln-card"
+        style="background:${c.bg};border:1px solid ${c.border};border-radius:10px;overflow:hidden;">
+
+        <summary style="padding:14px 16px;cursor:pointer;display:flex;align-items:center;gap:10px;list-style:none;">
+          <span style="font-family:var(--font-mono);font-size:0.68rem;font-weight:700;
+                       padding:2px 8px;border-radius:999px;border:1px solid ${c.border};
+                       color:${c.texto};background:${c.bg};">
+            ${v.severidad}
+          </span>
+
+          <span style="font-size:0.82rem;font-weight:700;flex:1;">
+            ${v.tipo}
+          </span>
+
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--muted);">
+            Línea ${v.linea} · ${v.cwe}
+          </span>
+
+          <span style="color:var(--muted);font-size:0.8rem;">▼</span>
+        </summary>
+
+        <div style="padding:0 16px 16px;display:flex;flex-direction:column;gap:12px;">
+
+          <div>
+            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--muted);
+                        margin-bottom:5px;text-transform:uppercase;letter-spacing:0.08em;">
+              Código afectado (línea ${v.linea})
+            </div>
+            <pre style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);
+                        border-radius:7px;padding:10px;font-family:var(--font-mono);
+                        font-size:0.75rem;color:#f87171;overflow-x:auto;margin:0;
+                        white-space:pre-wrap;word-break:break-all;">
+${escHtml(v.codigo)}
+            </pre>
+          </div>
+
+          <div>
+            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--muted);
+                        margin-bottom:4px;text-transform:uppercase;letter-spacing:0.08em;">
+              ¿Qué es?
+            </div>
+            <p style="font-size:0.8rem;color:var(--muted-hi);line-height:1.6;margin:0;">
+              ${v.descripcion}
+            </p>
+          </div>
+
+          <div>
+            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--muted);
+                        margin-bottom:4px;text-transform:uppercase;letter-spacing:0.08em;">
+              Impacto
+            </div>
+            <p style="font-size:0.8rem;color:${c.texto};line-height:1.6;margin:0;">
+              ${v.impacto}
+            </p>
+          </div>
+
+          <div>
+            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--muted);
+                        margin-bottom:4px;text-transform:uppercase;letter-spacing:0.08em;">
+              Cómo solucionarlo
+            </div>
+            <p style="font-size:0.8rem;color:#4ade80;line-height:1.6;margin:0;">
+              ${v.solucion}
+            </p>
+          </div>
+
+          <div>
+            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--muted);
+                        margin-bottom:5px;text-transform:uppercase;letter-spacing:0.08em;">
+              Ejemplo seguro
+            </div>
+            <pre style="background:rgba(74,222,128,0.05);border:1px solid rgba(74,222,128,0.2);
+                        border-radius:7px;padding:10px;font-family:var(--font-mono);
+                        font-size:0.75rem;color:#4ade80;overflow-x:auto;margin:0;
+                        white-space:pre-wrap;word-break:break-all;">
+${escHtml(v.ejemplo_seguro)}
+            </pre>
+          </div>
+
+        </div>
+      </details>
+    `;
+  });
+
+  panel.innerHTML = html;
+  document.getElementById('result-output').appendChild(panel);
+}
+
+// ── ANALYZE ──
+let lastPrediction = null;
+document.getElementById('analyze-btn').addEventListener('click', analyze);
+codeInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) analyze();
+});
+
+async function analyze() {
+  const code = codeInput.value.trim();
+  if (!code) {
+    codeInput.classList.add('shake');
+    setTimeout(() => codeInput.classList.remove('shake'), 400);
+    return;
+  }
+  showLoading();
+  resetFeedback();
+  document.getElementById('analyze-btn').disabled = true;
+
+  try {
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ code })
+    });
+
+    if (res.status === 429) {
+      const d = await res.json().catch(() => ({}));
+      showRateLimit(d.limit_type === 'user'
+        ? `Has usado los ${dailyLimit} análisis de hoy. Se reinicia a medianoche UTC.`
+        : 'Límite por IP alcanzado. Se reinicia a medianoche UTC.');
+      if (!isAdmin) { dailyUsed = dailyLimit; updateQuota(); }
+      return;
+    }
+
+    if (res.status === 401) {
+      window.location.href = '/frontend/login.html';
+      return;
+    }
+
+    const data = await res.json();
+    if (!isAdmin) { dailyUsed++; updateQuota(); }
+    showOutput();
+
+    if (data.is_secure == null) {
+      setVerdict('nocode', null);
+      resetFeedback();
+      mostrarVulnerabilidades([]);
+      lastPrediction = { code, predicted_label: 2, confidence: data.confidence };
+      return;
+    }
+
+    if (userRole === 'premium' || isAdmin) showFeedbackBtns();
+
+    setVerdict(data.is_secure === false ? 'danger' : 'safe', data.confidence);
+    lastPrediction = {
+      code,
+      predicted_label: data.is_secure === false ? 1 : 0,
+      confidence: data.confidence
+    };
+
+    mostrarVulnerabilidades(data.is_secure === false ? (data.vulnerabilities || []) : []);
+
+  } catch (err) {
+    console.error(err);
+    mostrarVulnerabilidades([]);
+    showIdle();
+  } finally {
+    document.getElementById('analyze-btn').disabled = false;
+  }
+}
+
+// ── FEEDBACK ──
+async function sendFeedback(realLabel) {
+  if (!lastPrediction) return;
+  try {
+    const res = await fetch('/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        code: lastPrediction.code,
+        predicted_label: lastPrediction.predicted_label,
+        real_label: realLabel,
+        confidence: lastPrediction.confidence
+      })
+    });
+    const msg = document.getElementById('feedback-msg');
+    if (res.ok) {
+      msg.textContent = '¡Gracias por tu feedback!';
+      msg.className = 'feedback-msg feedback-ok';
+    } else {
+      const d = await res.json();
+      msg.textContent = d.detail || 'Error enviando feedback.';
+      msg.className = 'feedback-msg feedback-err';
+    }
+    document.getElementById('feedback-correcto').disabled = true;
+    document.getElementById('feedback-incorrecto').disabled = true;
+  } catch {
+    document.getElementById('feedback-msg').textContent = 'Error de conexión.';
+  }
+}
+
+document.getElementById('feedback-correcto')
+  .addEventListener('click', () => sendFeedback(lastPrediction.predicted_label));
+document.getElementById('feedback-incorrecto')
+  .addEventListener('click', () => sendFeedback(
+    lastPrediction.predicted_label === 1 ? 0
+    : lastPrediction.predicted_label === 0 ? 1
+    : 2
+  ));
+
+// ── FEEDBACK ──
+async function sendFeedback(realLabel){
+  if(!lastPrediction)return;
+  try{
+    const res=await fetch('/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({code:lastPrediction.code,predicted_label:lastPrediction.predicted_label,real_label:realLabel,confidence:lastPrediction.confidence})});
+    const msg=document.getElementById('feedback-msg');
+    if(res.ok){msg.textContent='¡Gracias por tu feedback!';msg.className='feedback-msg feedback-ok';}
+    else{const d=await res.json();msg.textContent=d.detail||'Error enviando feedback.';msg.className='feedback-msg feedback-err';}
+    document.getElementById('feedback-correcto').disabled=true;
+    document.getElementById('feedback-incorrecto').disabled=true;
+  }catch{document.getElementById('feedback-msg').textContent='Error de conexión.';}
+}
+document.getElementById('feedback-correcto').addEventListener('click',()=>sendFeedback(lastPrediction.predicted_label));
+document.getElementById('feedback-incorrecto').addEventListener('click',()=>sendFeedback(lastPrediction.predicted_label===1?0:lastPrediction.predicted_label===0?1:2));
+
+// ── LOGOUT ──
+document.getElementById('btn-logout').addEventListener('click',async()=>{await fetch('/api/logout',{method:'POST',credentials:'include'});window.location.href='/frontend/login.html';});
+
+// ── ADMIN MODAL ──
+function openAdmin(){document.getElementById('modal-backdrop').classList.add('open');document.getElementById('admin-modal').classList.add('open');loadUsers();}
+function closeAdmin(){document.getElementById('modal-backdrop').classList.remove('open');document.getElementById('admin-modal').classList.remove('open');}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAdmin();});
+
+async function changeRole(userId, currentRole){
+  const newRole = currentRole==='basic'?'premium':'basic';
+  const label   = currentRole==='basic'?'premium':'basic';
+  if(!confirm(`¿Cambiar este usuario a ${label}?`)) return;
+  try{
+    const res=await fetch(`/api/admin/users/${userId}/role?role=${newRole}`,{method:'PATCH',credentials:'include'});
+    if(res.ok){ loadUsers(); }
+    else{ const d=await res.json(); alert(d.detail||'Error al cambiar rol'); }
+  }catch{ alert('Error de conexión'); }
+}
+
+async function loadUsers(){
+  const body=document.getElementById('modal-body');
+  body.innerHTML=`<div class="modal-loading"><div class="scan-ring"></div><p>Cargando usuarios…</p></div>`;
+  try{
+    const res=await fetch('/api/admin/users',{credentials:'include'});
+    if(!res.ok){body.innerHTML='<p class="modal-error">Error al cargar usuarios.</p>';return;}
+    const users=await res.json();
+    document.getElementById('stat-total').textContent=users.length;
+    document.getElementById('stat-online').textContent=users.filter(u=>u.online).length;
+    document.getElementById('stat-premium').textContent=users.filter(u=>u.role==='premium').length;
+    if(!users.length){body.innerHTML='<p class="modal-empty">No hay usuarios registrados.</p>';return;}
+    body.innerHTML=`
+      <table class="users-table">
+        <thead><tr>
+          <th>Estado</th><th>Email</th><th>Rol</th>
+          <th>Análisis hoy</th><th>Último uso</th><th>Registrado</th><th>Acción</th>
+        </tr></thead>
+        <tbody>
+          ${users.map(u=>`
+            <tr class="${u.online?'row-online':''}">
+              <td><span class="online-dot ${u.online?'dot-on':'dot-off'}"></span></td>
+              <td class="cell-email">${u.email}</td>
+              <td>${u.is_admin
+                ?'<span class="role-tag role-admin">Admin</span>'
+                :u.role==='premium'
+                  ?'<span class="role-tag role-premium">Premium</span>'
+                  :'<span class="role-tag role-basic-tag">Basic</span>'
+              }</td>
+              <td class="cell-num">${u.is_admin
+                ?'<span class="no-limit">∞</span>'
+                :`${u.daily_requests??0} / ${u.role==='premium'?50:20}`
+              }</td>
+              <td class="cell-muted">${u.last_request_date??'—'}</td>
+              <td class="cell-muted">${u.created_at?u.created_at.slice(0,10):'—'}</td>
+              <td>${u.is_admin?'<span class="cell-muted">—</span>':`
+                <button class="btn-role-toggle ${u.role==='premium'?'btn-demote':'btn-promote'}"
+                  onclick="changeRole(${u.id},'${u.role||'basic'}')">
+                  ${u.role==='premium'?'↓ Basic':'↑ Premium'}
+                </button>`
+              }</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  }catch{body.innerHTML='<p class="modal-error">Error de conexión.</p>';}
+}
+loadSession();
+</script>
+</body>
+</html>
