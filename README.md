@@ -18,7 +18,7 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-0e1116?style=flat-square&labelColor=0e1116&color=4fd1c5)
 ![HuggingFace](https://img.shields.io/badge/HuggingFace-0e1116?style=flat-square&labelColor=0e1116&color=f0a830)
 
-**`F1 0.915`**  ·  **`92% precisión`**  ·  [Demo en vivo ↗]([https://huggingface.co/spaces/R0bl3s/php-ai-security-tfg](https://r0bl3s-php-ai-security-tfg.hf.space/frontend/login.html))
+**`F1 0.915`**  ·  **`92% precisión`**  ·  [Demo en vivo ↗](https://r0bl3s-php-ai-security-tfg.hf.space/frontend/login.html)
 
 </div>
 
