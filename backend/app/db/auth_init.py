@@ -7,8 +7,8 @@ logger = logging.getLogger(__name__)
 
 SUPABASE_URL     = os.environ.get("SUPABASE_URL", "")
 SUPABASE_API_KEY = os.environ.get("SUPABASE_API_KEY", "")
-ADMIN_EMAIL      = "miguelroblesmedina@gmail.com"
-ADMIN_PASSWORD   = "ASO_asir.2026"
+ADMIN_EMAIL      = os.environ.get("ADMIN_EMAIL", "")
+ADMIN_PASSWORD   = os.environ.get("ADMIN_PASSWORD", "")
 
 
 def _use_supabase():
@@ -24,10 +24,19 @@ def _headers():
 
 
 def _supabase_init():
-    res  = httpx.get(
+    # Si no hay admin configurado por variables de entorno, no creamos nada.
+    if not (ADMIN_EMAIL and ADMIN_PASSWORD):
+        logger.info("ADMIN_EMAIL/ADMIN_PASSWORD no configurados: se omite la creación de admin.")
+        return
+
+    res = httpx.get(
         f"{SUPABASE_URL}/rest/v1/users?email=eq.{ADMIN_EMAIL}&select=id,is_verified,role",
         headers=_headers(), timeout=10
     )
+    # Validar que Supabase respondió correctamente antes de parsear JSON.
+    # Si está caído/pausado devuelve HTML de error (no JSON) y esto evita
+    # el JSONDecodeError que tumbaba la app.
+    res.raise_for_status()
     data = res.json()
 
     if not data:
@@ -108,8 +117,17 @@ def _sqlite_init():
 def init_auth_db():
     if _use_supabase():
         logger.info("Inicializando auth con Supabase...")
-        _supabase_init()
+        try:
+            _supabase_init()
+        except Exception as e:
+            # Si Supabase falla (caído, pausado, incidencia...), la app NO debe
+            # morirse: solo registramos el error y seguimos arrancando. La parte
+            # de análisis de código (IA) funciona sin base de datos.
+            logger.error("No se pudo inicializar Supabase (la app sigue arrancando): %s", e)
     else:
         logger.info("Inicializando auth con SQLite...")
-        _sqlite_init()
+        try:
+            _sqlite_init()
+        except Exception as e:
+            logger.error("No se pudo inicializar SQLite (la app sigue arrancando): %s", e)
     logger.info("Base de datos de autenticación lista.")
